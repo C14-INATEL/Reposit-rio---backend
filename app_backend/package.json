@@ -4,7 +4,7 @@
   "description": "Backend de um sistema web para gestão de entregas que organiza pedidos por região, prioriza entregas urgentes e calcula automaticamente o custo logístico.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "repository": {
     "type": "git",
@@ -19,5 +19,9 @@
   "homepage": "https://github.com/C14-INATEL/Reposit-rio---backend#readme",
   "dependencies": {
     "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "jest": "^30.3.0",
+    "supertest": "^7.2.2"
   }
 }

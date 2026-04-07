@@ -11,6 +11,10 @@ app.get("/", (req, res) => {
   res.send("Servidor backend funcionando 🚀");
 });
 
-app.listen(3000, () => {
-  console.log("Servidor rodando em http://localhost:3000");
-});
+if (require.main === module) {
+  app.listen(3000, () => {
+    console.log("Servidor rodando em http://localhost:3000");
+  });
+}
+
+module.exports = app;
