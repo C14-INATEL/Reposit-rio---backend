@@ -57,5 +57,49 @@ describe("loginController", () => {
       mensagem: "Usuário ou senha inválidos",
     });
   });
+
+  test("deve retornar 401 quando usuário não for informado", () => {
+    req.body = { senha: "1234" };
+
+    loginController.login(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({
+      mensagem: "Usuário ou senha inválidos",
+    });
+  });
+
+  test("deve retornar 401 quando senha não for informada", () => {
+    req.body = { usuario: "admin" };
+
+    loginController.login(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({
+      mensagem: "Usuário ou senha inválidos",
+    });
+  });
+
+  test("deve retornar 401 quando usuário for string vazia", () => {
+    req.body = { usuario: "", senha: "1234" };
+
+    loginController.login(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({
+      mensagem: "Usuário ou senha inválidos",
+    });
+  });
+
+  test("deve retornar 401 quando senha for string vazia", () => {
+    req.body = { usuario: "admin", senha: "" };
+
+    loginController.login(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({
+      mensagem: "Usuário ou senha inválidos",
+    });
+  });
 });
 
