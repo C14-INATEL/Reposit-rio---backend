@@ -15,7 +15,7 @@ services:
 
   backend:
     build:
-      context: ./Reposit-rio---backend/app_backend
+      context: ./app_backend
       dockerfile: Dockerfile
     depends_on:
       - db
@@ -30,7 +30,7 @@ services:
 
   frontend:
     build:
-      context: ./Reposit-rio---Frontend
+      context: ../Reposit-rio---Frontend
       dockerfile: Dockerfile
     depends_on:
       - backend
