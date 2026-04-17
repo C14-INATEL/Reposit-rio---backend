@@ -1,43 +1,36 @@
-version: '3.9'
-
 services:
   db:
-    image: postgres:15-alpine
+    image: mysql:8
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: appdb
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: sistema_entregas
     volumes:
-      - dbdata:/var/lib/postgresql/data
+      - dbdata:/var/lib/mysql
+      - ../Repositorio_Banco_De_Dados/db.sql:/docker-entrypoint-initdb.d/db.sql:ro
     ports:
-      - "5432:5432"
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
       context: ./app_backend
       dockerfile: Dockerfile
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       DB_HOST: db
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASS: postgres
-      DB_NAME: appdb
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASS: root
+      DB_NAME: sistema_entregas
     ports:
       - "3000:3000"
-
-  frontend:
-    build:
-      context: ../Reposit-rio---Frontend
-      dockerfile: Dockerfile
-    depends_on:
-      - backend
-    environment:
-      VITE_API_URL: "http://backend:3000"
-    ports:
-      - "5173:5173"
 
 volumes:
   dbdata:
