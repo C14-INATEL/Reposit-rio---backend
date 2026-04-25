@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Testes unitários com mock — loginController
  * Autor: <seu nome>
  *
@@ -121,3 +121,42 @@ describe("loginController — login com credenciais inválidas", () => {
     expect(chamada).not.toHaveProperty("tipo");
   });
 });
+
+  /**
+   * Teste 5 (mock com falha esperada)
+   * Cenário: validação propositalmente incorreta do tipo retornado.
+   * Esperado: o teste PASSA porque a assertiva falha é capturada.
+   *
+   * Aqui testamos o próprio comportamento do Jest ao detectar erro.
+   */
+  test("deve passar ao detectar falha de assertiva no tipo do usuário", () => {
+    const req = makeReq({ usuario: "lojista", senha: "1234" });
+    const res = makeRes();
+
+    loginController.login(req, res);
+
+    expect(() => {
+      expect(res.json).toHaveBeenCalledWith({
+        mensagem: "Login realizado com sucesso",
+        tipo: "admin", // errado de propósito
+      });
+    }).toThrow();
+  });
+
+  /**
+   * Teste 6 (mock com falha esperada)
+   * Cenário: verificação incorreta de status HTTP.
+   * Esperado: o teste PASSA porque esperamos que a verificação falhe.
+   *
+   * Simula uma validação errada de contrato HTTP.
+   */
+  test("deve passar ao detectar falha na verificação de status HTTP", () => {
+    const req = makeReq({ usuario: "entregador", senha: "1234" });
+    const res = makeRes();
+
+    loginController.login(req, res);
+
+    expect(() => {
+      expect(res.status).not.toHaveBeenCalled(); // errado de propósito (deveria ter sido chamado com 401)
+    }).toThrow();
+  });
