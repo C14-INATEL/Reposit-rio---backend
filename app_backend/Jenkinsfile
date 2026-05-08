@@ -1,0 +1,36 @@
+pipeline {
+    agent any
+
+    tools {
+        nodejs 'NodeJS-20'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Instalar dependências') {
+            steps {
+                sh 'npm install'
+            }
+        }
+
+        stage('Rodar testes') {
+            steps {
+                sh 'npm test'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Testes passaram com sucesso!'
+        }
+        failure {
+            echo '❌ Algum teste falhou. Verifique os logs acima.'
+        }
+    }
+}
