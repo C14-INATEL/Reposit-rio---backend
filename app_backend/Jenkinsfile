@@ -14,13 +14,17 @@ pipeline {
 
         stage('Instalar dependências') {
             steps {
-                sh 'npm install'
+                dir('app_backend') {
+                    sh 'npm install'
+                }
             }
         }
 
         stage('Rodar testes') {
             steps {
-                sh 'npm test'
+                dir('app_backend') {
+                    sh 'npm test'
+                }
             }
         }
     }

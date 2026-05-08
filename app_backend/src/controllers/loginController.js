@@ -1,22 +1,37 @@
-const authService = require('../services/authService')
+exports.login = (req, res) => {
 
-exports.login = async (req, res) => {
-  try {
-    const { email, senha } = req.body
-    if (!email || !senha) {
-      return res.status(401).json({ mensagem: 'Usuário ou senha inválidos' })
-    }
-    const usuario = await authService.autenticar(email, senha)
-    if (!usuario) {
-      return res.status(401).json({ mensagem: 'Usuário ou senha inválidos' })
-    }
-    res.json({
-      mensagem: 'Login realizado com sucesso',
-      tipo: usuario.tipo,
-      nome: usuario.nome,
-    })
-  } catch (err) {
-    console.error('Erro ao realizar login:', err)
-    res.status(500).json({ mensagem: 'Erro interno do servidor' })
+  const { usuario, senha } = req.body;
+
+  if (usuario === "admin" && senha === "1234") {
+    return res.json({
+      mensagem: "Login realizado com sucesso",
+      tipo: "admin"
+    });
   }
-}
+
+  if (usuario === "cliente" && senha === "1234") {
+    return res.json({
+      mensagem: "Login realizado com sucesso",
+      tipo: "cliente"
+    });
+  }
+
+  if (usuario === "lojista" && senha === "1234") {
+    return res.json({
+      mensagem: "Login realizado com sucesso",
+      tipo: "lojista"
+    });
+  }
+
+  if (usuario === "operador" && senha === "1234") {
+    return res.json({
+      mensagem: "Login realizado com sucesso",
+      tipo: "operador"
+    });
+  }
+
+  return res.status(401).json({
+    mensagem: "Usuário ou senha inválidos"
+  });
+
+};
