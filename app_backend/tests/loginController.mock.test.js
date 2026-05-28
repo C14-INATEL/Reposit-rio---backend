@@ -160,3 +160,72 @@ describe("loginController — login com credenciais inválidas", () => {
       expect(res.status).not.toHaveBeenCalled(); // errado de propósito (deveria ter sido chamado com 401)
     }).toThrow();
   });
+
+
+  /**
+ * Teste 7
+ * Cenário: requisição sem usuário.
+ * Esperado: status 400 com mensagem de validação.
+ */
+test("deve retornar 400 quando usuário não for enviado", () => {
+  const req = makeReq({ senha: "1234" });
+  const res = makeRes();
+
+  loginController.login(req, res);
+
+  expect(res.status).toHaveBeenCalledWith(400);
+
+  expect(res.json).toHaveBeenCalledWith({
+    mensagem: "Usuário e senha são obrigatórios",
+  });
+});
+
+/**
+ * Teste 8
+ * Cenário: requisição sem senha.
+ * Esperado: status 400 com mensagem de validação.
+ */
+test("deve retornar 400 quando senha não for enviada", () => {
+  const req = makeReq({ usuario: "admin" });
+  const res = makeRes();
+
+  loginController.login(req, res);
+
+  expect(res.status).toHaveBeenCalledWith(400);
+
+  expect(res.json).toHaveBeenCalledWith({
+    mensagem: "Usuário e senha são obrigatórios",
+  });
+});
+
+/**
+ * Teste 9
+ * Cenário: body vazio.
+ * Esperado: status 400.
+ */
+test("deve retornar 400 quando body estiver vazio", () => {
+  const req = makeReq({});
+  const res = makeRes();
+
+  loginController.login(req, res);
+
+  expect(res.status).toHaveBeenCalledWith(400);
+});
+
+/**
+ * Teste 10
+ * Cenário: tipos inválidos nos campos.
+ * Esperado: status 400.
+ */
+test("deve retornar 400 para tipos inválidos", () => {
+  const req = makeReq({
+    usuario: 123,
+    senha: true,
+  });
+
+  const res = makeRes();
+
+  loginController.login(req, res);
+
+  expect(res.status).toHaveBeenCalledWith(400);
+});
