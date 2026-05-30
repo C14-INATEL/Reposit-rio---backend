@@ -12,7 +12,7 @@ pipeline {
             }
         }
 
-        stage('Instalar dependências') {
+        stage('Instalar dependencias') {
             steps {
                 dir('app_backend') {
                     sh 'npm install'
@@ -27,14 +27,25 @@ pipeline {
                 }
             }
         }
+
+        stage('Deploy') {
+            steps {
+                dir('app_backend') {
+                    sh 'docker build -t c214-backend .'
+                    sh 'docker stop backend || true'
+                    sh 'docker rm backend || true'
+                    sh 'docker run -d --name backend -p 3000:3000 c214-backend'
+                }
+            }
+        }
     }
 
     post {
         success {
-            echo '✅ Testes passaram com sucesso!'
+            echo 'Testes e deploy concluidos com sucesso!'
         }
         failure {
-            echo '❌ Algum teste falhou. Verifique os logs acima.'
+            echo 'Algum passo falhou. Verifique os logs acima.'
         }
     }
 }
