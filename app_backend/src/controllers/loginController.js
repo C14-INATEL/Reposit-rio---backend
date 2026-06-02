@@ -1,49 +1,49 @@
-exports.login = (req, res) => {
+const db = require('../database/db')
+const authService = require('../services/authService')
 
-  const { usuario, senha } = req.body;
+exports.login = async (req, res) => {
+  const { usuario, senha, email } = req.body
 
-  // VALIDAÇÃO NOVA
-  if (
-    !usuario ||
-    !senha ||
-    typeof usuario !== "string" ||
-    typeof senha !== "string"
-  ) {
+  // VALIDAÇÃO
+  if ((!usuario && !email) || !senha || typeof senha !== 'string') {
     return res.status(400).json({
-      mensagem: "Usuário e senha são obrigatórios"
-    });
+      mensagem: 'Usuário/Email e senha são obrigatórios',
+    })
   }
 
-  if (usuario === "admin" && senha === "1234") {
-    return res.json({
-      mensagem: "Login realizado com sucesso",
-      tipo: "admin"
-    });
+  try {
+    // Tenta autenticar por email (banco de dados)
+    if (email) {
+      const user = await authService.autenticar(email, senha)
+      if (user) {
+        return res.json({
+          mensagem: 'Login realizado com sucesso',
+          tipo: user.tipo,
+          usuario: user,
+        })
+      }
+    }
+
+    // Fallback para mock users (para desenvolvimento)
+    const MOCK_USERS = {
+      admin: { senha: '1234', tipo: 'admin' },
+      operador: { senha: '1234', tipo: 'operador' },
+      lojista: { senha: '1234', tipo: 'lojista' },
+      cliente: { senha: '1234', tipo: 'cliente' },
+    }
+
+    if (usuario && MOCK_USERS[usuario] && MOCK_USERS[usuario].senha === senha) {
+      return res.json({
+        mensagem: 'Login realizado com sucesso',
+        tipo: MOCK_USERS[usuario].tipo,
+      })
+    }
+
+    return res.status(401).json({
+      mensagem: 'Usuário ou senha inválidos',
+    })
+  } catch (err) {
+    console.error('Erro ao realizar login:', err)
+    res.status(500).json({ mensagem: 'Erro ao realizar login' })
   }
-
-  if (usuario === "cliente" && senha === "1234") {
-    return res.json({
-      mensagem: "Login realizado com sucesso",
-      tipo: "cliente"
-    });
-  }
-
-  if (usuario === "lojista" && senha === "1234") {
-    return res.json({
-      mensagem: "Login realizado com sucesso",
-      tipo: "lojista"
-    });
-  }
-
-  if (usuario === "operador" && senha === "1234") {
-    return res.json({
-      mensagem: "Login realizado com sucesso",
-      tipo: "operador"
-    });
-  }
-
-  return res.status(401).json({
-    mensagem: "Usuário ou senha inválidos"
-  });
-
-};
+}
