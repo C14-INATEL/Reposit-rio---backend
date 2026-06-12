@@ -8,6 +8,8 @@ const PORT = process.env.PORT || 3000;
 const loginRoutes = require("./src/routes/loginRoutes");
 const lojasRoutes = require("./src/routes/lojasRoutes");
 const usuariosRoutes = require("./src/routes/usuariosRoutes");
+const entregasRoutes = require("./src/routes/entregasRoutes");
+const regioesRoutes = require("./src/routes/regioesRoutes");
 
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
@@ -27,6 +29,8 @@ app.use(express.json());
 app.use("/", loginRoutes);
 app.use("/", lojasRoutes);
 app.use("/", usuariosRoutes);
+app.use("/", entregasRoutes);
+app.use("/", regioesRoutes);
 
 app.get("/", (req, res) => {
   res.send("Servidor backend funcionando 🚀");

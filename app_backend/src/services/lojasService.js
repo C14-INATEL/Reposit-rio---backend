@@ -1,6 +1,16 @@
 const db = require('../database/db')
 
-const listar = async () => {
+const listar = async ({ usuarioId } = {}) => {
+  if (usuarioId) {
+    const [rows] = await db.query(
+      `SELECT l.id, l.nome, l.endereco, l.telefone, u.nome AS lojista, l.usuario_id
+       FROM lojas l
+       LEFT JOIN usuarios u ON l.usuario_id = u.id
+       WHERE l.usuario_id = ?`,
+      [usuarioId]
+    )
+    return rows
+  }
   const [rows] = await db.query(
     `SELECT l.id, l.nome, l.endereco, l.telefone, u.nome AS lojista, l.usuario_id
      FROM lojas l
