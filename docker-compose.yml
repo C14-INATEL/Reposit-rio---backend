@@ -16,6 +16,27 @@ services:
       timeout: 5s
       retries: 5
 
+  # Serviço que popula o banco automaticamente toda vez que o sistema sobe.
+  # Roda popular_banco.js dentro de um container Node, espera o MySQL ficar
+  # saudável, e encerra após o seed. O backend só inicia depois deste passo.
+  seed:
+    image: node:20-alpine
+    working_dir: /seed
+    volumes:
+      - ../Repositorio_Banco_De_Dados:/seed
+      - seed_node_modules:/seed/node_modules
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASS: root
+      DB_NAME: sistema_entregas
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh -c "npm install --omit=dev --no-audit --no-fund --silent && node popular_banco.js"
+    restart: "no"
+
   backend:
     build:
       context: ./app_backend
@@ -23,6 +44,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      seed:
+        condition: service_completed_successfully
     environment:
       DB_HOST: db
       DB_PORT: 3306
@@ -35,3 +58,4 @@ services:
 
 volumes:
   dbdata:
+  seed_node_modules:

@@ -2,7 +2,9 @@ const lojasService = require('../services/lojasService')
 
 exports.listar = async (req, res) => {
   try {
-    const lojas = await lojasService.listar()
+    const { usuario_id } = req.query
+    const filtro = usuario_id ? { usuarioId: Number(usuario_id) } : {}
+    const lojas = await lojasService.listar(filtro)
     res.json(lojas)
   } catch (err) {
     console.error('Erro ao listar lojas:', err)
