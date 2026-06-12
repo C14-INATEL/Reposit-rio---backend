@@ -7,8 +7,8 @@ router.get('/usuarios', async (req, res) => {
   try {
     const { tipo } = req.query
     const query = tipo
-      ? 'SELECT id, nome, email, tipo FROM usuarios WHERE tipo = ?'
-      : 'SELECT id, nome, email, tipo FROM usuarios'
+      ? 'SELECT id, nome, email, senha, tipo FROM usuarios WHERE tipo = ?'
+      : 'SELECT id, nome, email, senha, tipo FROM usuarios'
     const params = tipo ? [tipo] : []
     const [rows] = await db.query(query, params)
     res.json(rows)
@@ -37,12 +37,12 @@ router.post('/cadastro', async (req, res) => {
 
 router.put('/usuarios/:id', async (req, res) => {
   try {
-    const { nome, email, tipo } = req.body
+    const { nome, email, senha, tipo } = req.body
     if (!nome || !email || !tipo) {
-      return res.status(400).json({ mensagem: 'Todos os campos são obrigatórios' })
+      return res.status(400).json({ mensagem: 'Nome, email e tipo são obrigatórios' })
     }
-    await usuariosService.atualizar(req.params.id, { nome, email, tipo })
-    res.json({ mensagem: 'Usuário atualizado com sucesso' })
+    const usuarioAtualizado = await usuariosService.atualizar(req.params.id, { nome, email, senha, tipo })
+    res.json({ mensagem: 'Usuário atualizado com sucesso', usuario: usuarioAtualizado })
   } catch (err) {
     if (err.message === 'EMAIL_JA_CADASTRADO') {
       return res.status(409).json({ mensagem: 'Este e-mail já está em uso.' })
