@@ -207,3 +207,18 @@ O `Jenkinsfile` dentro de `app_backend/` automatiza:
 3. **Execução dos testes** com geração de relatório HTML.
 4. **Envio do relatório** por e-mail (opcional — configure o parâmetro `EMAIL_DESTINATARIO_RELATORIO`).
 5. **Deploy** via Docker (build da imagem e restart do container).
+
+---
+
+## Uso de Inteligência Artificial
+
+Este projeto contou com o auxílio do **Claude** (Anthropic) durante o desenvolvimento.
+
+A IA foi utilizada como ferramenta de apoio nas seguintes frentes:
+
+- **Geração e revisão de código** — controllers, services, utilitários e rotas.
+- **Escrita de testes** — criação dos arquivos de teste com Jest e mocks, cobrindo cenários de sucesso, erro de validação e falhas internas.
+- **Documentação** — geração deste README e orientações sobre estrutura do projeto.
+- **Resolução de dúvidas técnicas** — boas práticas de organização de código Node.js/Express, configuração do Docker Compose e pipeline Jenkins.
+
+> O código gerado foi revisado, adaptado e validado pela equipe antes de ser incorporado ao projeto.
