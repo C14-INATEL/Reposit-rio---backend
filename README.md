@@ -16,6 +16,7 @@ raiz-do-projeto/
 │   ├── index.js
 │   ├── package.json            ← dependências do backend
 │   ├── Dockerfile
+│   ├── Jenkinsfile
 │   └── ...
 └── Repositorio_Banco_De_Dados/ ← repositório separado com o SQL e seed
     ├── db.sql
@@ -32,8 +33,8 @@ raiz-do-projeto/
 |---|---|
 | Node.js | 20 |
 | npm | 9 |
-| Docker | 24 (para execução via Docker) |
-| Docker Compose | v2 (para execução via Docker) |
+| Docker | 24 |
+| Docker Compose | v2 |
 
 ---
 
@@ -52,7 +53,7 @@ A estrutura de pastas deve ficar como mostrado na seção acima.
 
 ### 2. Copie o `docker-compose.yml` para a raiz
 
-O arquivo `docker-compose.yml` está versionado dentro de `app_backend/`, mas precisa ser movido (ou copiado) para a raiz do projeto antes de rodar:
+O arquivo `docker-compose.yml` está versionado dentro de `app_backend/`, mas precisa ser copiado para a raiz do projeto antes de rodar:
 
 ```bash
 # A partir da raiz do projeto
@@ -200,13 +201,103 @@ Os relatórios de teste são gerados na pasta `app_backend/reports/` após a exe
 
 ## Pipeline Jenkins
 
-O `Jenkinsfile` dentro de `app_backend/` automatiza:
+O `Jenkinsfile` dentro de `app_backend/` automatiza o ciclo completo: testes, geração de relatório HTML, envio por e-mail (opcional) e deploy via Docker.
 
-1. **Checkout** do código.
-2. **Instalação** das dependências.
-3. **Execução dos testes** com geração de relatório HTML.
-4. **Envio do relatório** por e-mail (opcional — configure o parâmetro `EMAIL_DESTINATARIO_RELATORIO`).
-5. **Deploy** via Docker (build da imagem e restart do container).
+### Pré-requisitos para rodar a pipeline
+
+**1. Jenkins via Docker**
+
+Suba o Jenkins localmente com o comando abaixo. O volume `-v /var/run/docker.sock` permite que a pipeline execute comandos Docker:
+
+```powershell
+docker run -d `
+  --name jenkins `
+  -p 8080:8080 `
+  -p 50000:50000 `
+  -v jenkins_home:/var/jenkins_home `
+  -v /var/run/docker.sock:/var/run/docker.sock `
+  jenkins/jenkins:lts
+```
+
+Acesse `http://localhost:8080` e conclua o setup inicial com a senha gerada:
+
+```powershell
+docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+```
+
+**2. Plugin NodeJS**
+
+- Acesse **Manage Jenkins → Plugins → Available plugins**
+- Instale o plugin **NodeJS Plugin**
+- Após reiniciar, vá em **Manage Jenkins → Tools → NodeJS installations → Add NodeJS**
+- Defina o nome exatamente como `NodeJS-20` e selecione a versão **20.x**
+
+**3. Docker CLI dentro do container Jenkins**
+
+A pipeline executa `docker build` e `docker run` no stage de Deploy. Instale o Docker CLI e conceda permissão ao usuário jenkins:
+
+```powershell
+docker exec -u root jenkins apt-get update
+docker exec -u root jenkins apt-get install -y docker.io
+docker exec -u root jenkins usermod -aG docker jenkins
+docker exec -u root jenkins chmod 666 /var/run/docker.sock
+docker restart jenkins
+```
+
+**4. Liberar a porta 3000 antes do Deploy**
+
+O container de Deploy sobe na porta 3000. Se houver outro container usando essa porta (ex: `projetoduck-backend-1`), pare-o antes de rodar a pipeline:
+
+```powershell
+docker stop projetoduck-backend-1
+```
+
+Após os testes, para retornar ao ambiente normal:
+
+```powershell
+docker compose up -d
+```
+
+### Configurar a pipeline no Jenkins
+
+1. Clique em **New Item**, dê um nome (ex: `backend-pipeline`) e escolha **Pipeline**
+2. Em **Pipeline → Definition** selecione **Pipeline script from SCM**
+3. Em **SCM** escolha **Git** e informe a URL:
+   ```
+   https://github.com/C14-INATEL/Reposit-rio---backend.git
+   ```
+4. Em **Branch Specifier** coloque `*/main`
+5. Em **Script Path** coloque `app_backend/Jenkinsfile`
+6. Salve e clique em **Build Now**
+
+### Stages da pipeline
+
+| Stage | O que faz | Sinal de sucesso |
+|---|---|---|
+| Checkout | Clona o repositório | Revision checkada sem erro |
+| Instalar dependências | Executa `npm install` | `audited X packages` |
+| Rodar testes e gerar relatório | Executa o Jest e gera `reports/test-report.html` | `Relatorio gerado em ...` |
+| Enviar relatório por e-mail | Envia o HTML por SMTP (opcional) | `Sending email to: ...` |
+| Deploy | Build da imagem e restart do container `backend` na porta 3000 | Container ID retornado |
+
+### Relatório de testes
+
+Após cada build, o relatório HTML fica disponível em **Build → Artifacts → reports/test-report.html** dentro do Jenkins.
+
+### Envio de relatório por e-mail (opcional)
+
+Para ativar o envio, configure o SMTP em **Manage Jenkins → System → Extended E-mail Notification**:
+
+| Campo | Valor |
+|---|---|
+| SMTP server | `smtp.gmail.com` |
+| SMTP Port | `465` |
+| Use SSL | marcado |
+| Credenciais | e-mail + senha de app do Google |
+
+> Para gerar a senha de app: acesse [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), crie uma senha para "Mail" e use-a no lugar da senha normal da conta.
+
+Ao disparar o build, informe o e-mail no parâmetro `EMAIL_DESTINATARIO_RELATORIO`. Deixando vazio, o stage é pulado automaticamente.
 
 ---
 
