@@ -35,9 +35,10 @@ pipeline {
                         mkdir -p reports
                         set +e
                         npm test -- --runInBand --json --outputFile=reports/jest-results.json > reports/test-output.log 2>&1
-                        TEST_EXIT_CODE=$?
+                        echo $? > reports/exit_code.txt
                         set -e
-
+                    '''
+                    sh '''
                         node <<'NODE'
                         const fs = require('fs')
 
@@ -117,7 +118,7 @@ pipeline {
                             <h2>Resumo</h2>
                             <table>
                               <tbody>
-                                ${summaryRows.map(([label, value]) => `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value ?? 0)}</td></tr>`).join('')}
+                                ${summaryRows.map(([label, value]) => '<tr><th>' + escapeHtml(label) + '</th><td>' + escapeHtml(value ?? 0) + '</td></tr>').join('')}
                               </tbody>
                             </table>
                             <h2>Suites</h2>
@@ -127,7 +128,7 @@ pipeline {
                               </thead>
                               <tbody>${suiteRows || '<tr><td colspan="5">Nenhuma suite encontrada.</td></tr>'}</tbody>
                             </table>
-                            ${failureDetails ? `<h2>Detalhes das falhas</h2>${failureDetails}` : ''}
+                            ${failureDetails ? '<h2>Detalhes das falhas</h2>' + failureDetails : ''}
                             <h2>Log final</h2>
                             <pre>${escapeHtml(outputLog)}</pre>
                           </body>
@@ -136,7 +137,9 @@ pipeline {
 
                         fs.writeFileSync(htmlPath, html)
                         NODE
-
+                    '''
+                    sh '''
+                        TEST_EXIT_CODE=$(cat reports/exit_code.txt)
                         exit $TEST_EXIT_CODE
                     '''
                 }
