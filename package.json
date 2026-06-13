@@ -1,0 +1,9 @@
+{
+  "name": "projeto-duck",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install --prefix ./Reposit-rio---backend/app_backend && npm install --prefix ./Reposit-rio---Frontend && npm install --prefix ./Repositorio_Banco_De_Dados",
+    "dev": "node scripts/dev.js",
+    "seed": "node ./Repositorio_Banco_De_Dados/popular_banco.js"
+  }
+}

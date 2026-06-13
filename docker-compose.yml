@@ -1,3 +1,5 @@
+version: '3.9'
+
 services:
   db:
     image: mysql:8
@@ -7,7 +9,7 @@ services:
       MYSQL_DATABASE: sistema_entregas
     volumes:
       - dbdata:/var/lib/mysql
-      - ../Repositorio_Banco_De_Dados/db.sql:/docker-entrypoint-initdb.d/db.sql:ro
+      - ./Repositorio_Banco_De_Dados/db.sql:/docker-entrypoint-initdb.d/db.sql:ro
     ports:
       - "3306:3306"
     healthcheck:
@@ -16,46 +18,46 @@ services:
       timeout: 5s
       retries: 5
 
-  # Serviço que popula o banco automaticamente toda vez que o sistema sobe.
-  # Roda popular_banco.js dentro de um container Node, espera o MySQL ficar
-  # saudável, e encerra após o seed. O backend só inicia depois deste passo.
-  seed:
-    image: node:20-alpine
-    working_dir: /seed
-    volumes:
-      - ../Repositorio_Banco_De_Dados:/seed
-      - seed_node_modules:/seed/node_modules
-    environment:
-      DB_HOST: db
-      DB_PORT: 3306
-      DB_USER: root
-      DB_PASS: root
-      DB_NAME: sistema_entregas
-    depends_on:
-      db:
-        condition: service_healthy
-    command: sh -c "npm install --omit=dev --no-audit --no-fund --silent && node popular_banco.js"
-    restart: "no"
-
   backend:
     build:
-      context: ./app_backend
+      context: ./Reposit-rio---backend/app_backend
       dockerfile: Dockerfile
     depends_on:
       db:
         condition: service_healthy
-      seed:
-        condition: service_completed_successfully
     environment:
       DB_HOST: db
       DB_PORT: 3306
       DB_USER: root
       DB_PASS: root
       DB_NAME: sistema_entregas
-      PORT: 3000
     ports:
       - "3000:3000"
 
+  seed:
+    build:
+      context: ./Repositorio_Banco_De_Dados
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASS: root
+    command: npm run seed
+
+  frontend:
+    build:
+      context: ./Reposit-rio---Frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: "http://localhost:3000"
+    ports:
+      - "5173:5173"
+
 volumes:
   dbdata:
-  seed_node_modules:
