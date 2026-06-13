@@ -5,6 +5,14 @@ pipeline {
         nodejs 'NodeJS-20'
     }
 
+    parameters {
+        string(
+            name: 'EMAIL_DESTINATARIO_RELATORIO',
+            defaultValue: '',
+            description: 'E-mail que recebera o relatorio de testes do backend. Deixe vazio para nao enviar.'
+        )
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -20,10 +28,141 @@ pipeline {
             }
         }
 
-        stage('Rodar testes') {
+        stage('Rodar testes e gerar relatorio') {
             steps {
                 dir('app_backend') {
-                    sh 'npm test'
+                    sh '''
+                        mkdir -p reports
+                        set +e
+                        npm test -- --runInBand --json --outputFile=reports/jest-results.json > reports/test-output.log 2>&1
+                        TEST_EXIT_CODE=$?
+                        set -e
+
+                        node <<'NODE'
+                        const fs = require('fs')
+
+                        const jsonPath = 'reports/jest-results.json'
+                        const logPath = 'reports/test-output.log'
+                        const htmlPath = 'reports/test-report.html'
+
+                        const escapeHtml = (value) => String(value ?? '')
+                          .replace(/&/g, '&amp;')
+                          .replace(/</g, '&lt;')
+                          .replace(/>/g, '&gt;')
+                          .replace(/"/g, '&quot;')
+                          .replace(/'/g, '&#039;')
+
+                        const results = fs.existsSync(jsonPath)
+                          ? JSON.parse(fs.readFileSync(jsonPath, 'utf8'))
+                          : {}
+
+                        const suites = results.testResults || []
+                        const failedSuites = suites.filter((suite) => suite.status === 'failed')
+                        const success = Number(results.numFailedTests || 0) === 0 && Number(results.numRuntimeErrorTestSuites || 0) === 0
+                        const statusLabel = success ? 'SUCESSO' : 'FALHA'
+                        const statusColor = success ? '#2e7d32' : '#c62828'
+
+                        const summaryRows = [
+                          ['Suites executadas', results.numTotalTestSuites],
+                          ['Suites aprovadas', results.numPassedTestSuites],
+                          ['Suites com falha', results.numFailedTestSuites],
+                          ['Testes executados', results.numTotalTests],
+                          ['Testes aprovados', results.numPassedTests],
+                          ['Testes com falha', results.numFailedTests],
+                          ['Testes pendentes', results.numPendingTests],
+                        ]
+
+                        const suiteRows = suites.map((suite) => {
+                          const passed = suite.assertionResults?.filter((item) => item.status === 'passed').length || 0
+                          const failed = suite.assertionResults?.filter((item) => item.status === 'failed').length || 0
+                          const pending = suite.assertionResults?.filter((item) => item.status === 'pending').length || 0
+                          return `
+                            <tr>
+                              <td>${escapeHtml(suite.name)}</td>
+                              <td>${escapeHtml(suite.status)}</td>
+                              <td>${passed}</td>
+                              <td>${failed}</td>
+                              <td>${pending}</td>
+                            </tr>
+                          `
+                        }).join('')
+
+                        const failureDetails = failedSuites.map((suite) => `
+                          <h3>${escapeHtml(suite.name)}</h3>
+                          <pre>${escapeHtml(suite.message || 'Falha sem mensagem detalhada.')}</pre>
+                        `).join('')
+
+                        const outputLog = fs.existsSync(logPath)
+                          ? fs.readFileSync(logPath, 'utf8').slice(-12000)
+                          : 'Log de testes nao encontrado.'
+
+                        const html = `
+                          <!doctype html>
+                          <html lang="pt-BR">
+                          <head>
+                            <meta charset="utf-8">
+                            <title>Relatorio de testes - Backend</title>
+                            <style>
+                              body { font-family: Arial, sans-serif; color: #222; line-height: 1.4; }
+                              .status { display: inline-block; padding: 8px 12px; border-radius: 4px; color: #fff; background: ${statusColor}; font-weight: 700; }
+                              table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+                              th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                              th { background: #f5f5f5; }
+                              pre { background: #f7f7f7; border: 1px solid #ddd; padding: 12px; overflow: auto; white-space: pre-wrap; }
+                            </style>
+                          </head>
+                          <body>
+                            <h1>Relatorio de testes - Backend</h1>
+                            <p>Status da validacao do projeto: <span class="status">${statusLabel}</span></p>
+                            <h2>Resumo</h2>
+                            <table>
+                              <tbody>
+                                ${summaryRows.map(([label, value]) => `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value ?? 0)}</td></tr>`).join('')}
+                              </tbody>
+                            </table>
+                            <h2>Suites</h2>
+                            <table>
+                              <thead>
+                                <tr><th>Arquivo</th><th>Status</th><th>Aprovados</th><th>Falhas</th><th>Pendentes</th></tr>
+                              </thead>
+                              <tbody>${suiteRows || '<tr><td colspan="5">Nenhuma suite encontrada.</td></tr>'}</tbody>
+                            </table>
+                            ${failureDetails ? `<h2>Detalhes das falhas</h2>${failureDetails}` : ''}
+                            <h2>Log final</h2>
+                            <pre>${escapeHtml(outputLog)}</pre>
+                          </body>
+                          </html>
+                        `
+
+                        fs.writeFileSync(htmlPath, html)
+                        NODE
+
+                        exit $TEST_EXIT_CODE
+                    '''
+                }
+            }
+            post {
+                always {
+                    dir('app_backend') {
+                        archiveArtifacts artifacts: 'reports/*', allowEmptyArchive: true
+                    }
+                }
+            }
+        }
+
+        stage('Enviar relatorio de testes por email') {
+            when {
+                expression { return params.EMAIL_DESTINATARIO_RELATORIO?.trim() }
+            }
+            steps {
+                dir('app_backend') {
+                    emailext(
+                        to: params.EMAIL_DESTINATARIO_RELATORIO,
+                        subject: "[${currentBuild.currentResult}] Relatorio de testes backend - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                        mimeType: 'text/html',
+                        body: '${FILE,path="reports/test-report.html"}',
+                        attachmentsPattern: 'reports/test-report.html,reports/test-output.log,reports/jest-results.json'
+                    )
                 }
             }
         }

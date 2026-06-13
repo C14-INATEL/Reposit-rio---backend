@@ -1,86 +1,151 @@
 const entregasService = require('../services/entregasService')
+const { responderErro, responderErroInterno } = require('../utils/httpResponses')
 
 const PRIORIDADES_VALIDAS = ['baixa', 'media', 'alta', 'urgente']
 const STATUS_VALIDOS = ['criado', 'andamento', 'enviado', 'entregue', 'cancelado']
 
-exports.listar = async (req, res) => {
-  try {
-    const { lojista_id } = req.query
-    const filtro = lojista_id ? { lojistaId: Number(lojista_id) } : {}
-    const entregas = await entregasService.listar(filtro)
-    res.json(entregas)
-  } catch (err) {
-    console.error('Erro ao listar entregas:', err)
-    res.status(500).json({ mensagem: 'Erro ao buscar entregas' })
+// Mensagens centralizadas evitam divergência entre respostas parecidas.
+const MENSAGENS = {
+  entregaNaoEncontrada: 'Entrega não encontrada',
+  criarObrigatorios: 'descricao, loja_id e regiao_id são obrigatórios',
+  listarErro: 'Erro ao buscar entregas',
+  buscarErro: 'Erro ao buscar entrega',
+  criarErro: 'Erro ao criar entrega',
+  atualizarErro: 'Erro ao atualizar entrega',
+  excluirErro: 'Erro ao excluir entrega',
+}
+
+// Funções de preparação mantêm os handlers focados em fluxo HTTP.
+const filtroListagem = (query) => {
+  return query.lojista_id ? { lojistaId: Number(query.lojista_id) } : {}
+}
+
+const valorOpcionalNumerico = (valor) => {
+  return valor != null ? Number(valor) : null
+}
+
+const dadosNovaEntrega = (body) => {
+  const { descricao, loja_id, regiao_id, prioridade, custo } = body || {}
+
+  return {
+    descricao,
+    loja_id: Number(loja_id),
+    regiao_id: Number(regiao_id),
+    prioridade,
+    custo: valorOpcionalNumerico(custo),
   }
 }
 
-exports.buscarPorId = async (req, res) => {
+const possuiDadosMinimosCriacao = (body) => {
+  return Boolean(body?.descricao && body?.loja_id && body?.regiao_id)
+}
+
+const valorPermitido = (valor, permitidos) => {
+  return !valor || permitidos.includes(valor)
+}
+
+const mensagemValorInvalido = (campo, permitidos) => {
+  return `${campo} inválida (use: ${permitidos.join(', ')})`
+}
+
+// Validações retornam a mensagem pronta para o controller responder.
+const validarCriacao = (body) => {
+  if (!possuiDadosMinimosCriacao(body)) {
+    return MENSAGENS.criarObrigatorios
+  }
+
+  if (!valorPermitido(body.prioridade, PRIORIDADES_VALIDAS)) {
+    return mensagemValorInvalido('prioridade', PRIORIDADES_VALIDAS)
+  }
+
+  return null
+}
+
+const validarAtualizacao = (campos) => {
+  if (!valorPermitido(campos.status, STATUS_VALIDOS)) {
+    return mensagemValorInvalido('status', STATUS_VALIDOS)
+  }
+
+  if (!valorPermitido(campos.prioridade, PRIORIDADES_VALIDAS)) {
+    return mensagemValorInvalido('prioridade', PRIORIDADES_VALIDAS)
+  }
+
+  return null
+}
+
+// Handlers exportados: recebem HTTP, delegam regra ao service e respondem.
+const listar = async (req, res) => {
+  try {
+    const entregas = await entregasService.listar(filtroListagem(req.query))
+    return res.json(entregas)
+  } catch (err) {
+    return responderErroInterno(res, 'Erro ao listar entregas:', MENSAGENS.listarErro, err)
+  }
+}
+
+const buscarPorId = async (req, res) => {
   try {
     const entrega = await entregasService.buscarPorId(req.params.id)
+
     if (!entrega) {
-      return res.status(404).json({ mensagem: 'Entrega não encontrada' })
+      return responderErro(res, 404, MENSAGENS.entregaNaoEncontrada)
     }
-    res.json(entrega)
+
+    return res.json(entrega)
   } catch (err) {
-    console.error('Erro ao buscar entrega:', err)
-    res.status(500).json({ mensagem: 'Erro ao buscar entrega' })
+    return responderErroInterno(res, 'Erro ao buscar entrega:', MENSAGENS.buscarErro, err)
   }
 }
 
-exports.criar = async (req, res) => {
+const criar = async (req, res) => {
+  const erroValidacao = validarCriacao(req.body)
+
+  if (erroValidacao) {
+    return responderErro(res, 400, erroValidacao)
+  }
+
   try {
-    const { descricao, loja_id, regiao_id, prioridade, custo } = req.body
-
-    if (!descricao || !loja_id || !regiao_id) {
-      return res.status(400).json({ mensagem: 'descricao, loja_id e regiao_id são obrigatórios' })
-    }
-    if (prioridade && !PRIORIDADES_VALIDAS.includes(prioridade)) {
-      return res.status(400).json({ mensagem: `prioridade inválida (use: ${PRIORIDADES_VALIDAS.join(', ')})` })
-    }
-
-    const nova = await entregasService.criar({
-      descricao,
-      loja_id: Number(loja_id),
-      regiao_id: Number(regiao_id),
-      prioridade,
-      custo: custo != null ? Number(custo) : null,
-    })
-    res.status(201).json(nova)
+    const entrega = await entregasService.criar(dadosNovaEntrega(req.body))
+    return res.status(201).json(entrega)
   } catch (err) {
-    console.error('Erro ao criar entrega:', err)
-    res.status(500).json({ mensagem: 'Erro ao criar entrega' })
+    return responderErroInterno(res, 'Erro ao criar entrega:', MENSAGENS.criarErro, err)
   }
 }
 
-exports.atualizar = async (req, res) => {
+const atualizar = async (req, res) => {
+  const campos = req.body || {}
+  const erroValidacao = validarAtualizacao(campos)
+
+  if (erroValidacao) {
+    return responderErro(res, 400, erroValidacao)
+  }
+
   try {
-    const campos = req.body || {}
+    const entrega = await entregasService.atualizar(req.params.id, campos)
 
-    if (campos.status && !STATUS_VALIDOS.includes(campos.status)) {
-      return res.status(400).json({ mensagem: `status inválido (use: ${STATUS_VALIDOS.join(', ')})` })
-    }
-    if (campos.prioridade && !PRIORIDADES_VALIDAS.includes(campos.prioridade)) {
-      return res.status(400).json({ mensagem: `prioridade inválida (use: ${PRIORIDADES_VALIDAS.join(', ')})` })
+    if (!entrega) {
+      return responderErro(res, 404, MENSAGENS.entregaNaoEncontrada)
     }
 
-    const atualizada = await entregasService.atualizar(req.params.id, campos)
-    if (!atualizada) {
-      return res.status(404).json({ mensagem: 'Entrega não encontrada' })
-    }
-    res.json(atualizada)
+    return res.json(entrega)
   } catch (err) {
-    console.error('Erro ao atualizar entrega:', err)
-    res.status(500).json({ mensagem: 'Erro ao atualizar entrega' })
+    return responderErroInterno(res, 'Erro ao atualizar entrega:', MENSAGENS.atualizarErro, err)
   }
 }
 
-exports.excluir = async (req, res) => {
+const excluir = async (req, res) => {
   try {
     await entregasService.excluir(req.params.id)
-    res.json({ mensagem: 'Entrega excluída com sucesso' })
+    return res.json({ mensagem: 'Entrega excluída com sucesso' })
   } catch (err) {
-    console.error('Erro ao excluir entrega:', err)
-    res.status(500).json({ mensagem: 'Erro ao excluir entrega' })
+    return responderErroInterno(res, 'Erro ao excluir entrega:', MENSAGENS.excluirErro, err)
   }
+}
+
+module.exports = {
+  listar,
+  buscarPorId,
+  criar,
+  atualizar,
+  excluir,
 }

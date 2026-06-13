@@ -36,7 +36,7 @@ describe("POST /login — rota delega para o controller", () => {
       res.status(200).json({ mensagem: "Login realizado com sucesso", tipo: "cliente" });
     });
 
-    await request(app).post("/login").send({ usuario: "cliente", senha: "1234" });
+    await request(app).post("/login").send({ email: "fernanda.lima@duck.com", senha: "123456" });
 
     expect(loginController.login).toHaveBeenCalledTimes(1);
   });
@@ -46,7 +46,7 @@ describe("POST /login — rota delega para o controller", () => {
       res.status(401).json({ mensagem: "Usuário ou senha inválidos" });
     });
 
-    const response = await request(app).post("/login").send({ usuario: "hacker", senha: "tentativa" });
+    const response = await request(app).post("/login").send({ email: "hacker@duck.com", senha: "tentativa" });
 
     expect(response.statusCode).toBe(401);
     expect(response.body).toEqual({ mensagem: "Usuário ou senha inválidos" });
@@ -54,15 +54,15 @@ describe("POST /login — rota delega para o controller", () => {
   });
 });
 
-test("deve repassar usuario e senha corretamente ao controller", async () => {
+test("deve repassar email e senha corretamente ao controller", async () => {
   loginController.login.mockImplementation((req, res) => {
     res.status(200).json({ ok: true });
   });
 
-  await request(app).post("/login").send({ usuario: "admin", senha: "1234" });
+  await request(app).post("/login").send({ email: "lucas.martins@duck.com", senha: "123456" });
 
   const reqRecebida = loginController.login.mock.calls[0][0];
-  expect(reqRecebida.body).toEqual({ usuario: "admin", senha: "1234" });
+  expect(reqRecebida.body).toEqual({ email: "lucas.martins@duck.com", senha: "123456" });
 });
 
 test("deve retornar content-type application/json", async () => {
@@ -70,7 +70,7 @@ test("deve retornar content-type application/json", async () => {
     res.status(200).json({ mensagem: "OK" });
   });
 
-  const response = await request(app).post("/login").send({ usuario: "admin", senha: "1234" });
+  const response = await request(app).post("/login").send({ email: "admin@duck.com", senha: "123456" });
 
   expect(response.headers["content-type"]).toContain("application/json");
 });
@@ -80,7 +80,7 @@ test("deve chamar controller uma vez por requisição", async () => {
     res.status(200).json({ ok: true });
   });
 
-  await request(app).post("/login").send({ usuario: "cliente", senha: "1234" });
+  await request(app).post("/login").send({ email: "fernanda.lima@duck.com", senha: "123456" });
 
   expect(loginController.login).toHaveBeenCalledTimes(1);
 });

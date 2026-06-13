@@ -1,5 +1,20 @@
 const db = require('../database/db')
 
+const CAMPOS_PUBLICOS_USUARIO = 'id, nome, email, senha, tipo'
+
+const listar = async ({ tipo } = {}) => {
+  if (tipo) {
+    const [rows] = await db.query(
+      `SELECT ${CAMPOS_PUBLICOS_USUARIO} FROM usuarios WHERE tipo = ?`,
+      [tipo]
+    )
+    return rows
+  }
+
+  const [rows] = await db.query(`SELECT ${CAMPOS_PUBLICOS_USUARIO} FROM usuarios`)
+  return rows
+}
+
 const criar = async ({ nome, email, senha, tipo }) => {
   const [existente] = await db.query(
     'SELECT id FROM usuarios WHERE email = ?',
@@ -15,20 +30,34 @@ const criar = async ({ nome, email, senha, tipo }) => {
   return { id: result.insertId, nome, email, tipo }
 }
 
-const atualizar = async (id, { nome, email, tipo }) => {
+const atualizar = async (id, { nome, email, senha, tipo }) => {
   const [existente] = await db.query(
     'SELECT id FROM usuarios WHERE email = ? AND id != ?',
     [email, id]
   )
   if (existente.length > 0) throw new Error('EMAIL_JA_CADASTRADO')
-  await db.query(
-    'UPDATE usuarios SET nome=?, email=?, tipo=? WHERE id=?',
-    [nome, email, tipo, id]
+  
+  if (senha) {
+    await db.query(
+      'UPDATE usuarios SET nome=?, email=?, senha=?, tipo=? WHERE id=?',
+      [nome, email, senha, tipo, id]
+    )
+  } else {
+    await db.query(
+      'UPDATE usuarios SET nome=?, email=?, tipo=? WHERE id=?',
+      [nome, email, tipo, id]
+    )
+  }
+  
+  const [rows] = await db.query(
+    'SELECT id, nome, email, senha, tipo FROM usuarios WHERE id = ?',
+    [id]
   )
+  return rows[0] || null
 }
 
 const excluir = async (id) => {
   await db.query('DELETE FROM usuarios WHERE id = ?', [id])
 }
 
-module.exports = { criar, atualizar, excluir }
+module.exports = { listar, criar, atualizar, excluir }

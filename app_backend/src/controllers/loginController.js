@@ -1,50 +1,52 @@
-const db = require('../database/db')
 const authService = require('../services/authService')
+const { responderErro, responderErroInterno } = require('../utils/httpResponses')
+const { campoStringValido } = require('../utils/validations')
 
-exports.login = async (req, res) => {
-  const { usuario, senha, email } = req.body
+// Mensagens reunidas reduzem duplicacao e facilitam ajustes da API.
+const MENSAGENS = {
+  camposObrigatorios: 'Email e senha são obrigatórios',
+  credenciaisInvalidas: 'Usuário ou senha inválidos',
+  sucesso: 'Login realizado com sucesso',
+  erroInterno: 'Erro ao realizar login',
+}
 
-  if ((!usuario && !email) || !senha || typeof senha !== 'string') {
-    return res.status(400).json({
-      mensagem: 'Usuário/Email e senha são obrigatórios',
-    })
+// Entrada do request e normalizada antes da regra de autenticacao.
+const dadosLogin = (body) => {
+  const { email, senha } = body || {}
+  return { email, senha }
+}
+
+const loginValido = ({ email, senha }) => {
+  return campoStringValido(email) && campoStringValido(senha)
+}
+
+const respostaLogin = (usuario) => ({
+  mensagem: MENSAGENS.sucesso,
+  tipo: usuario.tipo,
+  usuario,
+})
+
+// Handler HTTP sem funcoes aninhadas: valida, autentica e responde.
+const login = async (req, res) => {
+  const credenciais = dadosLogin(req.body)
+
+  if (!loginValido(credenciais)) {
+    return responderErro(res, 400, MENSAGENS.camposObrigatorios)
   }
 
   try {
-    // Login por email — busca no banco
-    const emailBusca = email || (usuario && usuario.includes('@') ? usuario : null)
+    const usuario = await authService.autenticar(credenciais.email, credenciais.senha)
 
-    if (emailBusca) {
-      const user = await authService.autenticar(emailBusca, senha)
-      if (user) {
-        return res.json({
-          mensagem: 'Login realizado com sucesso',
-          tipo: user.tipo,
-          usuario: user,
-        })
-      }
+    if (!usuario) {
+      return responderErro(res, 401, MENSAGENS.credenciaisInvalidas)
     }
 
-    // Login por nome de usuário — busca no banco pelo campo nome
-    if (usuario && !usuario.includes('@')) {
-      const [rows] = await db.query(
-        'SELECT id, nome, email, tipo FROM usuarios WHERE nome = ? AND senha = ?',
-        [usuario, senha]
-      )
-      if (rows[0]) {
-        return res.json({
-          mensagem: 'Login realizado com sucesso',
-          tipo: rows[0].tipo,
-          usuario: rows[0],
-        })
-      }
-    }
-
-    return res.status(401).json({
-      mensagem: 'Usuário ou senha inválidos',
-    })
+    return res.json(respostaLogin(usuario))
   } catch (err) {
-    console.error('Erro ao realizar login:', err)
-    res.status(500).json({ mensagem: 'Erro ao realizar login' })
+    return responderErroInterno(res, 'Erro ao realizar login:', MENSAGENS.erroInterno, err)
   }
+}
+
+module.exports = {
+  login,
 }
